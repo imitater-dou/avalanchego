@@ -30,14 +30,14 @@ The Bazel path checks these outputs:
 Use these Task entrypoints from the repository root:
 
 ```text
-task bazel-build-image
+task bazel-build-image-avalanchego
 ```
 
 This command builds the pinned builder image, both binaries, and the combined
 OCI image index. It does not start a registry or run containers.
 
 ```text
-task bazel-test-build-image
+task bazel-test-build-image-avalanchego
 ```
 
 This command performs the build and the runtime checks. It starts a disposable
@@ -84,7 +84,7 @@ when changing the local cache path.
 ## CI behavior
 
 The Linux `build-avalanchego-image` job in `.github/workflows/bazel.yml` runs
-`bazel-test-build-image`. The job sets up QEMU and uses the Docker disk-space
+`bazel-test-build-image-avalanchego`. The job sets up QEMU and uses the Docker disk-space
 action. The job is part of `bazel-required`.
 
 The Bazel dependency list includes the builder and image-push targets. The
@@ -153,8 +153,8 @@ publishing behavior to this spike.
 Run the following checks after changes to the Bazel image path or its CI job:
 
 ```text
-task bazel-build-image
-task bazel-test-build-image
+task bazel-build-image-avalanchego
+task bazel-test-build-image-avalanchego
 bash -n scripts/bazel_image_spike.sh
 shellcheck scripts/bazel_image_spike.sh scripts/tests.build_image.sh
 git diff --check

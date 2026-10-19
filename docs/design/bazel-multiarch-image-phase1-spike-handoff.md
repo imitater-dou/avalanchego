@@ -158,8 +158,8 @@ Run these checks after changes to the validation script, image rules, or CI
 configuration:
 
 ```text
-task bazel-build-image
-task bazel-test-build-image
+task bazel-build-image-avalanchego
+task bazel-test-build-image-avalanchego
 bash -n scripts/bazel_image_spike.sh
 task lint-shell
 task lint-action

@@ -349,9 +349,9 @@ documentation must say which state is cleared.
 Follow `docs/tasks.md`: keep Taskfile entries small and put non-trivial logic in
 scripts. Tentative public tasks are:
 
-- `bazel-build-image`: build the host-architecture Bazel OCI image;
+- `bazel-build-image-avalanchego`: build the multi-platform Bazel AvalancheGo OCI image;
 - `bazel-load-image`: build and load the host-architecture image into Docker;
-- `bazel-test-build-image`: run Bazel image smoke tests;
+- `bazel-test-build-image-avalanchego`: run Bazel AvalancheGo image smoke tests;
 - a distinct multi-architecture or CI task if one command cannot remain simple.
 
 Final names should be chosen with the existing alphabetically sorted Taskfile

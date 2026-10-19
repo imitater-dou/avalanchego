@@ -28,6 +28,7 @@ EOF
 # uses Buildozer to update use_repo() calls in MODULE.bazel.
 bazel_ci_additional_dependency_targets() {
   cat <<'EOF'
+//:gazelle
 @buildifier_prebuilt//:buildifier
 @@buildozer++buildozer_binary+buildozer_binary//:buildozer.exe
 EOF

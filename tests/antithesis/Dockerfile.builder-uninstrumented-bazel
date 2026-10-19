@@ -1,0 +1,21 @@
+# The version is supplied as a build argument rather than hard-coded
+# to minimize the cost of version changes.
+ARG GO_VERSION=INVALID
+ARG GO_IMAGE
+ARG BAZEL_BUILDER_IMAGE=avalanchego-bazel-builder:phase1
+
+# The local Bazel builder is loaded by scripts/bazel_antithesis_images.sh.
+FROM ${BAZEL_BUILDER_IMAGE} AS bazel
+
+FROM ${GO_IMAGE}
+
+COPY --from=bazel /usr/local/bin/bazel /usr/local/bin/bazel
+
+# Dependencies are served from the host's local module-proxy cache.
+ENV GOPROXY=file:///gomodproxy,off
+
+WORKDIR /build
+RUN --mount=type=bind,source=.,target=/context \
+    if [ -d /context/graft ]; then cp -r /context/graft ./graft; fi
+COPY . .
+RUN [ -d ./build ] && rm -rf ./build/* || true

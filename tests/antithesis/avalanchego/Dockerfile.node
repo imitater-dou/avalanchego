@@ -1,5 +1,6 @@
 # BUILDER_IMAGE_TAG should identify the builder image
 ARG BUILDER_IMAGE_TAG=INVALID # This value is not intended to be used but silences a warning
+ARG EXECUTION_IMAGE=debian:12-slim
 
 # ============= Compilation Stage ================
 FROM antithesis-avalanchego-builder:$BUILDER_IMAGE_TAG AS builder
@@ -10,12 +11,19 @@ ENV GOPROXY=file:///gomodproxy,off
 # The workdir is hard-coded since this Dockerfile is only intended for instrumented builds.
 WORKDIR /instrumented/customer
 
-# Build avalanchego with race detection (-r) enabled.
-RUN --network=none --mount=type=bind,from=gomodcache,source=.,target=/gomodproxy,ro \
-    ./scripts/build.sh -r
+# Build avalanchego with race detection (-r) enabled. Bazel builds the
+# instrumented source tree in the Bazel Antithesis validation path.
+ARG ANTITHESIS_BAZEL=0
+RUN --mount=type=bind,from=gomodcache,source=.,target=/gomodproxy,ro \
+    if [ "$ANTITHESIS_BAZEL" = 1 ]; then \
+      bazel --batch build --config=release --workspace_status_command=/bin/true //main:avalanchego && \
+      cp "$(bazel --batch cquery --output=files --workspace_status_command=/bin/true //main:avalanchego)" build/avalanchego; \
+    else \
+      ./scripts/build.sh -r; \
+    fi
 
 # ============= Cleanup Stage ================
-FROM debian:12-slim AS execution
+FROM ${EXECUTION_IMAGE} AS execution
 
 # Install curl to simplify debugging
 RUN apt update && apt install curl -y

@@ -15,9 +15,16 @@ ARG BUILDER_WORKDIR
 
 WORKDIR $BUILDER_WORKDIR
 
-# Build the workload
-RUN --network=none --mount=type=bind,from=gomodcache,source=.,target=/gomodproxy,ro \
-    ./scripts/build_antithesis_avalanchego_workload.sh
+# Build the workload. Bazel builds the instrumented source tree in the Bazel
+# Antithesis validation path.
+ARG ANTITHESIS_BAZEL=0
+RUN --mount=type=bind,from=gomodcache,source=.,target=/gomodproxy,ro \
+    if [ "$ANTITHESIS_BAZEL" = 1 ]; then \
+      bazel --batch build --config=release --workspace_status_command=/bin/true //tests/antithesis/avalanchego && \
+      cp "$(bazel --batch cquery --output=files --workspace_status_command=/bin/true //tests/antithesis/avalanchego)" build/antithesis-avalanchego-workload; \
+    else \
+      ./scripts/build_antithesis_avalanchego_workload.sh; \
+    fi
 
 # ============= Cleanup Stage ================
 # Base the workflow on the node image to support bootstrap testing

@@ -26,13 +26,31 @@ function build_antithesis_builder_image {
 
   local base_dockerfile="${avalanchego_path}/tests/antithesis/Dockerfile"
   local builder_dockerfile="${base_dockerfile}.builder-instrumented"
+  if [[ "${ANTITHESIS_BAZEL:-}" == "1" ]]; then
+    builder_dockerfile="${base_dockerfile}.builder-bazel"
+  fi
   if [[ "$(go env GOARCH)" == "arm64" ]]; then
     # Antithesis instrumentation is only supported on amd64. On apple silicon (arm64),
     # an uninstrumented Dockerfile will be used to enable local test development.
     builder_dockerfile="${base_dockerfile}.builder-uninstrumented"
+    if [[ "${ANTITHESIS_BAZEL:-}" == "1" ]]; then
+      builder_dockerfile="${base_dockerfile}.builder-uninstrumented-bazel"
+    fi
   fi
 
-  docker buildx build --build-arg GO_VERSION="${go_version}" \
+  local -a docker_cmd=(
+    docker buildx build
+    --build-arg "GO_VERSION=${go_version}"
+  )
+  if [[ "${ANTITHESIS_BAZEL:-}" == "1" ]]; then
+    docker_cmd+=(
+      --build-arg "BAZEL_BUILDER_IMAGE=${BAZEL_BUILDER_IMAGE:-avalanchego-bazel-builder:phase1}"
+      --build-arg "GO_IMAGE=${ANTITHESIS_GO_IMAGE:?ANTITHESIS_GO_IMAGE must be set for Bazel Antithesis builds}"
+      --build-context "bazelrepository=${BAZEL_ANTITHESIS_REPOSITORY_CACHE:?BAZEL_ANTITHESIS_REPOSITORY_CACHE must be set for Bazel Antithesis builds}"
+      --build-context "bazelgomodcache=${BAZEL_ANTITHESIS_GO_MOD_CACHE:?BAZEL_ANTITHESIS_GO_MOD_CACHE must be set for Bazel Antithesis builds}"
+    )
+  fi
+  "${docker_cmd[@]}" \
     --build-context "gomodcache=$(go_module_proxy_cache)" \
     -t "${image_name}" -f "${builder_dockerfile}" "${target_path}"
 }
@@ -78,6 +96,12 @@ function build_antithesis_images {
     "--build-arg" "BUILDER_IMAGE_TAG=${image_tag}"
     "--build-arg" "BUILDER_WORKDIR=${builder_workdir}"
   )
+  if [[ "${ANTITHESIS_BAZEL:-}" == "1" ]]; then
+    docker_cmd+=(
+      "--build-arg" "ANTITHESIS_BAZEL=1"
+      "--build-arg" "EXECUTION_IMAGE=${ANTITHESIS_EXECUTION_IMAGE:?ANTITHESIS_EXECUTION_IMAGE must be set for Bazel Antithesis builds}"
+    )
+  fi
   if [[ -n "${avalanchego_commit}" ]]; then
     docker_cmd+=("--build-arg" "AVALANCHEGO_COMMIT=${avalanchego_commit}")
   fi

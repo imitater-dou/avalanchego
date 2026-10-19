@@ -22,13 +22,37 @@ enables discovery and reproduction of anomalous behavior.
 
 ## Instrumentation
 
-Software running in Antithesis's environment must be
-[instrumented](https://antithesis.com/docs/instrumentation/overview.html)
-to take full advantage of the supported traceability. Since the
-Antithesis Go SDK only supports the amd64/x86_64 architecture as of this
-writing, running of instrumented binaries on Macs (arm64) is not possible
-without emulation (which would be very slow). To support test development
-on Macs, a local build will not be instrumented.
+Software that runs in Antithesis must be
+[instrumented](https://antithesis.com/docs/reference/sdk/go/instrumentation/).
+The Antithesis Go SDK supports amd64/x86_64. It does not support arm64.
+
+Local arm64 builds use the uninstrumented builder. They support test setup
+and workload development. They do not validate the Antithesis shipping image.
+The Bazel Antithesis tasks keep this behavior:
+
+```bash
+task bazel-test-antithesis-images-avalanchego
+task bazel-test-antithesis-images-subnet-evm
+```
+
+The CI jobs run on native Linux amd64 runners. They build and run the
+instrumented images that Antithesis receives. Do not replace these jobs with
+an arm64 build or an OCI multi-platform image.
+
+### Bazel instrumented builds
+
+Instrumentation adds Go imports to the source tree. The instrumentor does not
+copy dotfiles. The Bazel builder copies `.bazelrc` and `.bazel/` into the
+instrumented tree. It then runs Gazelle. Gazelle adds the strict Go dependencies
+for the Antithesis runtime before Bazel compiles the node and workload binaries.
+
+Gazelle uses the Bazel repository cache that CI prepares before it starts the
+Docker build. The inner command disables repository downloads. This prevents a
+Docker build from depending on a network fetch. Keep `//:gazelle` in the Bazel
+CI dependency list when changing this path.
+
+The jobs cache digest-pinned Docker inputs separately from generated images.
+Do not add node, workload, config, or builder outputs to that cache.
 
 ## Defining a new test setup
 

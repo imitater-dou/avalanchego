@@ -88,6 +88,18 @@ tasks:
     desc: Test the local multi-platform AvalancheGo image with Bazel
     cmd: '{{.NIX_RUN}} ./scripts/bazel_image_spike.sh'
 
+  bazel-test-antithesis-images-avalanchego:
+    desc: Test the AvalancheGo Antithesis images with Bazel-built binaries
+    env:
+      TEST_SETUP: avalanchego
+    cmd: '{{.NIX_RUN}} bash -x ./scripts/bazel_antithesis_images.sh'
+
+  bazel-test-antithesis-images-subnet-evm:
+    desc: Test the Subnet-EVM Antithesis images with Bazel-built binaries
+    env:
+      TEST_SETUP: subnet-evm
+    cmd: '{{.NIX_RUN}} bash -x ./scripts/bazel_antithesis_images.sh'
+
   bazel-test-e2e:
     desc: Run E2E tests with bazel-built binary
     cmds:

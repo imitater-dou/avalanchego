@@ -1,0 +1,58 @@
+# The version is supplied as a build argument rather than hard-coded
+# to minimize the cost of version changes.
+ARG GO_VERSION=INVALID
+ARG GO_IMAGE
+ARG BAZEL_BUILDER_IMAGE=avalanchego-bazel-builder:phase1
+
+# The local Bazel builder is loaded by scripts/bazel_antithesis_images.sh.
+FROM ${BAZEL_BUILDER_IMAGE} AS bazel
+
+# Antithesis: Getting the Antithesis golang instrumentation library
+FROM docker.io/antithesishq/go-instrumentor@sha256:0dba5495e2c60f9b37ef9d4d1b859bef761c4094a1e2a28861c139c3acd9e459 AS instrumentor
+
+# ============= Instrumentation Stage ================
+FROM ${GO_IMAGE}
+
+COPY --from=bazel /usr/local/bin/bazel /usr/local/bin/bazel
+
+# Dependencies are served from the host's local module-proxy cache.
+ENV GOPROXY=file:///gomodproxy,off
+
+WORKDIR /build
+RUN --mount=type=bind,source=.,target=/context \
+    if [ -d /context/graft ]; then cp -r /context/graft ./graft; fi
+COPY . .
+RUN [ -d ./build ] && rm -rf ./build/* || true
+RUN git rev-parse HEAD > ./commit_hash.txt
+
+COPY --from=instrumentor /opt/antithesis /opt/antithesis
+COPY --from=instrumentor /opt/antithesis/lib /lib
+
+RUN mkdir -p /instrumented /opt/tmp/
+RUN cp -r .git /opt/tmp/
+RUN --network=none --mount=type=bind,from=gomodcache,source=.,target=/gomodproxy,ro \
+    /opt/antithesis/bin/goinstrumentor \
+    -stderrthreshold=INFO \
+    -antithesis /opt/antithesis/instrumentation \
+    . \
+    /instrumented
+
+# goinstrumentor does not retain dotfiles. Keep the tracked Bazel source
+# configuration and patches with the instrumented source. This is not Bazel's
+# output or repository cache.
+RUN cp /build/.bazelrc /instrumented/customer/.bazelrc && \
+    cp -r /build/.bazel /instrumented/customer/.bazel
+
+# Instrumentation adds imports to the generated Antithesis runtime. Regenerate
+# BUILD dependencies from that source before compiling it with Bazel.
+RUN --mount=type=bind,from=bazelrepository,source=.,target=/bazelrepository,readonly \
+    --mount=type=bind,from=bazelgomodcache,source=.,target=/bazelgomodcache,readonly \
+    cd /instrumented/customer && \
+    bazel --batch run //:gazelle \
+      --repository_cache=/bazelrepository \
+      --repository_disable_download \
+      --repo_env=GO_REPOSITORY_USE_HOST_MODCACHE=1 \
+      --repo_env=GOMODCACHE=/bazelgomodcache
+
+WORKDIR /instrumented/customer
+RUN ln -s /opt/tmp/.git .git

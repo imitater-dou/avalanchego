@@ -41,6 +41,68 @@ jobs:
         with:
           run: ./scripts/run_task.sh test-build-antithesis-images-subnet-evm
 
+  build-antithesis-images-avalanchego-bazel:
+    needs: setup-cache-linux-amd64
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-bazel
+      - id: antithesis-image-docker-cache-key
+        run: ./scripts/workflow-antithesis-image-docker-cache-key.sh
+      - id: restore-antithesis-image-docker-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ${{ runner.temp }}/antithesis-bazel-image/docker-images.tar
+          key: ${{ steps.antithesis-image-docker-cache-key.outputs.key }}
+      - id: antithesis-image-docker-cache-policy
+        uses: ./.github/actions/cache-policy
+        with:
+          request-cache-save: ${{ steps.restore-antithesis-image-docker-cache.outputs.cache-hit != 'true' }}
+      - name: Check Bazel image build for avalanchego Antithesis test setup
+        uses: ./.github/actions/run-docker-with-disk-space
+        env:
+          BAZEL_ANTITHESIS_DOCKER_CACHE_ARCHIVE: ${{ runner.temp }}/antithesis-bazel-image/docker-images.tar
+          BAZEL_ANTITHESIS_WRITE_DOCKER_CACHE: ${{ steps.antithesis-image-docker-cache-policy.outputs.cache-save-allowed }}
+        with:
+          run: ./scripts/run_task.sh bazel-test-antithesis-images-avalanchego
+      - name: Save Antithesis image Docker cache
+        if: ${{ steps.antithesis-image-docker-cache-policy.outputs.cache-save-allowed == 'true' }}
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ runner.temp }}/antithesis-bazel-image/docker-images.tar
+          key: ${{ steps.antithesis-image-docker-cache-key.outputs.key }}
+
+  build-antithesis-images-subnet-evm-bazel:
+    needs: setup-cache-linux-amd64
+    runs-on: ubuntu-24.04-amd64-4-core
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-bazel
+      - id: antithesis-image-docker-cache-key
+        run: ./scripts/workflow-antithesis-image-docker-cache-key.sh
+      - id: restore-antithesis-image-docker-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ${{ runner.temp }}/antithesis-bazel-image/docker-images.tar
+          key: ${{ steps.antithesis-image-docker-cache-key.outputs.key }}
+      - id: antithesis-image-docker-cache-policy
+        uses: ./.github/actions/cache-policy
+        with:
+          request-cache-save: ${{ steps.restore-antithesis-image-docker-cache.outputs.cache-hit != 'true' }}
+      - name: Check Bazel image build for subnet-evm Antithesis test setup
+        uses: ./.github/actions/run-docker-with-disk-space
+        env:
+          BAZEL_ANTITHESIS_DOCKER_CACHE_ARCHIVE: ${{ runner.temp }}/antithesis-bazel-image/docker-images.tar
+          BAZEL_ANTITHESIS_WRITE_DOCKER_CACHE: ${{ steps.antithesis-image-docker-cache-policy.outputs.cache-save-allowed }}
+        with:
+          run: ./scripts/run_task.sh bazel-test-antithesis-images-subnet-evm
+      - name: Save Antithesis image Docker cache
+        if: ${{ steps.antithesis-image-docker-cache-policy.outputs.cache-save-allowed == 'true' }}
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ runner.temp }}/antithesis-bazel-image/docker-images.tar
+          key: ${{ steps.antithesis-image-docker-cache-key.outputs.key }}
+
   build-image-avalanchego:
     needs: setup-cache-linux-amd64
     runs-on: ubuntu-24.04

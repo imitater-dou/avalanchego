@@ -15,10 +15,15 @@ ARG BUILDER_WORKDIR
 
 WORKDIR $BUILDER_WORKDIR
 
-# Build the workload from graft location (where it can import from graft/subnet-evm)
-RUN --network=none --mount=type=bind,from=gomodcache,source=.,target=/gomodproxy,ro \
-    go build -o ./build/antithesis-subnet-evm-workload \
-    github.com/ava-labs/avalanchego/graft/subnet-evm/tests/antithesis
+# Build the workload from graft location (where it can import from graft/subnet-evm).
+ARG ANTITHESIS_BAZEL=0
+RUN --mount=type=bind,from=gomodcache,source=.,target=/gomodproxy,ro \
+    if [ "$ANTITHESIS_BAZEL" = 1 ]; then \
+      bazel --batch build --config=release --workspace_status_command=/bin/true //graft/subnet-evm/tests/antithesis && \
+      cp "$(bazel --batch cquery --output=files --workspace_status_command=/bin/true //graft/subnet-evm/tests/antithesis)" build/antithesis-subnet-evm-workload; \
+    else \
+      go build -o ./build/antithesis-subnet-evm-workload github.com/ava-labs/avalanchego/graft/subnet-evm/tests/antithesis; \
+    fi
 
 # ============= Cleanup Stage ================
 # Base the workflow on the node image to support bootstrap testing
